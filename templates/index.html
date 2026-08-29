@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PowerFlow Enterprise Suite</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+    <style>
+        :root {
+            --sidebar-bg: #131924; --sidebar-hover: #1e2738; --accent-gold: #cfa138;
+            --body-bg: #f4f6f9; --card-bg: #ffffff; --text-dark: #2c3e50;
+            --text-muted: #7f8c8d; --border-color: #e2e8f0; --danger-red: #e74c3c;
+            --warn-orange: #e67e22; --success-green: #2ecc71;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, sans-serif; }
+        body { background-color: var(--body-bg); color: var(--text-dark); }
+        .app-layout { display: flex; min-height: 100vh; }
+        .sidebar { width: 250px; background-color: var(--sidebar-bg); color: #fff; display: flex; flex-direction: column; flex-shrink: 0; }
+        .brand { padding: 25px 20px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .brand h2 { font-size: 20px; color: var(--accent-gold); }
+        .brand span { color: #fff; font-weight: 300; }
+        .nav-menu { display: flex; flex-direction: column; gap: 4px; padding-top: 15px; flex-grow: 1; }
+        .nav-item { display: flex; align-items: center; padding: 14px 20px; color: #94a3b8; text-decoration: none; font-size: 14px; cursor: pointer; border-left: 4px solid transparent; transition: all 0.2s; }
+        .nav-item:hover { background-color: var(--sidebar-hover); color: #fff; }
+        .nav-item.active { background-color: var(--sidebar-hover); color: var(--accent-gold); border-left-color: var(--accent-gold); font-weight: 600; }
+        .nav-item .icon { margin-right: 12px; font-size: 16px; }
+        .main-content { flex-grow: 1; padding: 30px; overflow-y: auto; height: 100vh; }
+        .view-section { display: none; }
+        .view-section.active { display: block; }
+        .page-header { margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; }
+        .page-header h1 { font-size: 24px; color: var(--text-dark); }
+        .card { background: var(--card-bg); border-radius: 8px; padding: 22px; margin-bottom: 20px; box-shadow: 0 2px 6px rgba(0,0,0,0.04); border: 1px solid var(--border-color); }
+        .card-title { color: var(--accent-gold); font-weight: 600; margin-bottom: 15px; font-size: 16px; display: flex; justify-content: space-between; align-items: center; }
+        .kpi-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 15px; margin-bottom: 25px; }
+        .kpi-card { background: #fff; padding: 18px; border-radius: 8px; border: 1px solid var(--border-color); }
+        .kpi-title { font-size: 11px; color: var(--text-muted); font-weight: 700; letter-spacing: 0.5px; }
+        .kpi-card h3 { font-size: 18px; margin-top: 8px; color: var(--text-dark); }
+        .border-gold { border-left: 4px solid #cfa138; }
+        .border-red { border-left: 4px solid #e74c3c; }
+        .border-purple { border-left: 4px solid #9b59b6; }
+        .border-teal { border-left: 4px solid #1abc9c; }
+        .border-orange { border-left: 4px solid #e67e22; }
+        .filter-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; align-items: end; }
+        .input-group { display: flex; flex-direction: column; gap: 6px; }
+        .input-group label { font-size: 12px; color: var(--text-muted); font-weight: 600; }
+        .input-group input, .input-group select { padding: 9px; border: 1px solid #cbd5e1; border-radius: 6px; outline: none; font-size: 14px; }
+        .btn-gold { background: var(--accent-gold); color: white; border: none; padding: 10px 18px; border-radius: 6px; font-weight: 600; cursor: pointer; }
+        .btn-gold:hover { background: #b88d2d; }
+        .btn-small { padding: 6px 12px; font-size: 12px; }
+        .btn-delete { background-color: rgba(231, 76, 60, 0.1); color: var(--danger-red); border: 1px solid rgba(231, 76, 60, 0.3); border-radius: 4px; padding: 4px 8px; cursor: pointer; font-size: 12px; font-weight: bold; }
+        .data-table { width: 100%; border-collapse: collapse; }
+        .data-table th { text-align: left; padding: 12px; font-size: 11px; color: var(--text-muted); border-bottom: 2px solid var(--border-color); text-transform: uppercase; }
+        .data-table td { padding: 10px 12px; border-bottom: 1px solid var(--border-color); vertical-align: middle; }
+        .data-table input, .data-table select { width: 100%; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px; }
+        .sno-cell { font-weight: bold; color: var(--text-muted); text-align: center; width: 50px; }
+        .charts-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
+        .chart-box { position: relative; height: 260px; width: 100%; }
+        .diag-grid { display: grid; grid-template-columns: 1fr 2fr; gap: 20px; }
+        .mono-table { font-family: 'Courier New', Courier, monospace; font-size: 13px; }
+        .alert-box { display: none; background-color: #fdf2f2; border: 1px solid #f8b4b4; color: #981b1b; padding: 15px 20px; border-radius: 8px; margin-bottom: 20px; }
+        
+        #networkContainer { width: 100%; height: 500px; border: 1px solid var(--border-color); border-radius: 8px; background: #fafbfc; }
+        .bus-inspector { background: #131924; color: #fff; padding: 15px; border-radius: 6px; font-family: monospace; }
+        .bus-inspector h4 { color: var(--accent-gold); margin-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 4px; }
+
+        .health-summary-card { background: #131924; color: #fff; font-family: 'Courier New', Courier, monospace; border-radius: 8px; padding: 20px; }
+        .health-summary-card table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        .health-summary-card td { padding: 8px 4px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        .status-badge { padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 12px; display: inline-block; }
+        .badge-ok { background: rgba(46, 204, 113, 0.2); color: #2ecc71; }
+        .badge-warn { background: rgba(230, 126, 34, 0.2); color: #e67e22; }
+        .badge-danger { background: rgba(231, 76, 60, 0.2); color: #e74c3c; }
+
+        /* Tooltip Mechanics */
+        .has-tooltip { position: relative; cursor: pointer; display: inline-block; }
+        .has-tooltip .tooltip-text {
+            visibility: hidden; width: 250px; background-color: #1a2234; color: #e2e8f0;
+            text-align: left; border-radius: 6px; padding: 10px 12px; position: absolute;
+            z-index: 100; bottom: 125%; right: 0; box-shadow: 0px 4px 12px rgba(0,0,0,0.4);
+            border: 1px solid var(--border-color); font-size: 11px; line-height: 1.4;
+            opacity: 0; transition: opacity 0.2s ease-in-out; pointer-events: none;
+            font-family: 'Segoe UI', Tahoma, sans-serif;
+        }
+        .has-tooltip .tooltip-text::after {
+            content: ""; position: absolute; top: 100%; right: 15px; border-width: 6px;
+            border-style: solid; border-color: #1a2234 transparent transparent transparent;
+        }
+        .has-tooltip:hover .tooltip-text { visibility: visible; opacity: 1; }
+    </style>
+</head>
+<body>
+    <div class="app-layout">
+        <aside class="sidebar">
+            <div class="brand"><h2>PowerFlow <span>POS</span></h2></div>
+            <nav class="nav-menu">
+                <div class="nav-item active" onclick="switchView('dashboardView', this)"><span class="icon">⊞</span> Dashboard</div>
+                <div class="nav-item" onclick="switchView('networkView', this)"><span class="icon">🕸</span> Network Model</div>
+                <div class="nav-item" onclick="switchView('stressView', this)"><span class="icon">📈</span> Stress Analysis</div>
+                <div class="nav-item" onclick="switchView('benchmarkView', this)"><span class="icon">⚡</span> Benchmark Solvers</div>
+                <div class="nav-item" onclick="switchView('busView', this)"><span class="icon">🎛</span> Bus Config</div>
+                <div class="nav-item" onclick="switchView('lineView', this)"><span class="icon">🔌</span> Line Data</div>
+                <div class="nav-item" onclick="switchView('reportsView', this)"><span class="icon">📊</span> Detailed Analytics</div>
+            </nav>
+        </aside>
+
+        <main class="main-content">
+            <div id="validationBanner" class="alert-box">
+                <h4>❌ Calculation cannot start due to input errors:</h4>
+                <ul id="validationList"></ul>
+            </div>
+
+            <section id="dashboardView" class="view-section active">
+                <div class="page-header">
+                    <h1>Executive Dashboard & System Health</h1>
+                    <button class="btn-gold" onclick="runCalculation()">⚡ Run Load Flow Analysis</button>
+                </div>
+
+                <div class="kpi-grid">
+                    <div class="kpi-card border-gold"><span class="kpi-title">TOTAL BUSES</span><h3 id="dashBuses">3</h3></div>
+                    <div class="kpi-card border-red"><span class="kpi-title">TOTAL LINES</span><h3 id="dashLines">3</h3></div>
+                    <div class="kpi-card border-purple"><span class="kpi-title">SOLVER STATUS</span><h3 id="dashStatus">Idle</h3></div>
+                    <div class="kpi-card border-teal"><span class="kpi-title">TOTAL LOAD</span><h3 id="dashLoad">65.00 MW</h3></div>
+                    <div class="kpi-card border-orange"><span class="kpi-title">TOTAL LOSSES</span><h3 id="dashLosses">0.00 MW / 0.00 MVAR</h3></div>
+                </div>
+
+                <div class="diag-grid">
+                    <div class="card">
+                        <div class="card-title">⚙ Solver Configuration</div>
+                        <div class="input-group" style="margin-bottom: 12px;">
+                            <label>Algorithm Selection</label>
+                            <select id="method">
+                                <option value="newton_raphson">Newton-Raphson Method</option>
+                                <option value="gauss_seidel">Gauss-Seidel Method</option>
+                                <option value="fast_decoupled">Fast Decoupled (FDLF)</option>
+                            </select>
+                        </div>
+                        <div class="input-group" style="margin-bottom: 12px;"><label>Base MVA</label><input type="number" value="100" id="baseMva"></div>
+                        <div class="input-group" style="margin-bottom: 12px;"><label>Max Iterations</label><input type="number" value="20" id="maxIter"></div>
+                        <div class="input-group"><label>Tolerance</label><input type="text" value="0.001" id="tolerance"></div>
+                    </div>
+
+                    <div class="health-summary-card">
+                        <h3 style="color:var(--accent-gold); border-bottom: 1px solid rgba(255,255,255,0.2); padding-bottom: 8px;">SYSTEM HEALTH SUMMARY</h3>
+                        <table>
+                            <tr><td>Power Flow State</td><td id="shState" style="text-align:right;">—</td></tr>
+                            <tr><td>Voltage Limit Violations</td><td id="shVoltViol" style="text-align:right;">—</td></tr>
+                            <tr><td>Overloaded Lines (>100%)</td><td id="shOverLines" style="text-align:right;">—</td></tr>
+                            <tr><td>Active Power Loss</td><td id="shPLoss" style="text-align:right;">—</td></tr>
+                            <tr><td>Reactive Power Loss</td><td id="shQLoss" style="text-align:right;">—</td></tr>
+                            <tr><td>Minimum Voltage</td><td id="shMinV" style="text-align:right;">—</td></tr>
+                            <tr><td>Maximum Voltage</td><td id="shMaxV" style="text-align:right;">—</td></tr>
+                            <tr><td>Iterations Required</td><td id="shIter" style="text-align:right;">—</td></tr>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <section id="networkView" class="view-section">
+                <div class="page-header">
+                    <h1>Interactive Network Topology Model</h1>
+                    <button class="btn-gold btn-small" onclick="renderNetworkDiagram()">🔄 Redraw Topology</button>
+                </div>
+                <div class="card">
+                    <div class="diag-grid">
+                        <div id="networkContainer"></div>
+                        <div>
+                            <div class="card-title">🔍 Node & Branch Inspector</div>
+                            <div id="inspectorBox" class="bus-inspector">
+                                <i>Click on any bus in the topology diagram to inspect real-time solved states. Overloaded transmission lines are highlighted in RED/ORANGE.</i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="stressView" class="view-section">
+                <div class="page-header"><h1>Load-Scaling & Stress Analysis</h1></div>
+                <div class="card">
+                    <div class="card-title">🚀 Batch Stress Test Parameters</div>
+                    <div class="filter-grid">
+                        <div class="input-group"><label>Start Load (%)</label><input type="number" id="stressStart" value="50"></div>
+                        <div class="input-group"><label>End Load (%)</label><input type="number" id="stressEnd" value="150"></div>
+                        <div class="input-group"><label>Step Size (%)</label><input type="number" id="stressStep" value="5"></div>
+                        <button class="btn-gold" onclick="runStressAnalysis()">[ Run Stress Analysis ]</button>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-title">Voltage Stability PV Curves (Voltage vs. Load Factor)</div>
+                    <div class="chart-box" style="height: 380px;"><canvas id="stressChart"></canvas></div>
+                </div>
+            </section>
+
+            <section id="benchmarkView" class="view-section">
+                <div class="page-header">
+                    <h1>Algorithm Performance Benchmark</h1>
+                    <button class="btn-gold" onclick="runBenchmark()">⚡ Benchmark All Solvers</button>
+                </div>
+                <div class="card">
+                    <div class="card-title">Comparative Performance Metrics</div>
+                    <table class="data-table" id="benchmarkTable">
+                        <thead>
+                            <tr><th>METHOD</th><th>ITERATIONS</th><th>FINAL ERROR (p.u.)</th><th>STATUS</th><th>EXECUTION TIME (s)</th></tr>
+                        </thead>
+                        <tbody><tr><td colspan="5" style="text-align:center;">Click "Benchmark All Solvers" to execute comparison.</td></tr></tbody>
+                    </table>
+                </div>
+                <div class="charts-grid">
+                    <div class="card"><div class="card-title">Iteration Count Comparison</div><div class="chart-box"><canvas id="benchIterChart"></canvas></div></div>
+                    <div class="card"><div class="card-title">Execution Speed Comparison (s)</div><div class="chart-box"><canvas id="benchTimeChart"></canvas></div></div>
+                </div>
+            </section>
+
+            <section id="busView" class="view-section">
+                <div class="page-header">
+                    <h1>Bus System Management</h1>
+                    <button class="btn-gold btn-small" onclick="addBusRow()">+ Add New Bus</button>
+                </div>
+                <div class="card">
+                    <table class="data-table" id="busTable">
+                        <thead>
+                            <tr>
+                                <th>S.NO</th><th>BUS ID</th><th>TYPE</th><th>VOLTAGE (P.U.)</th><th>ANGLE (DEG)</th><th>V MIN</th><th>V MAX</th><th>GEN P (MW)</th><th>GEN Q (MVAR)</th><th>LOAD P (MW)</th><th>LOAD Q (MVAR)</th><th>ACTION</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="sno-cell">1</td><td><input type="number" value="1" class="b-id"></td>
+                                <td><select class="b-type"><option value="slack" selected>Slack Bus</option><option value="pv">PV Bus</option><option value="pq">PQ Bus</option></select></td>
+                                <td><input type="number" step="0.01" value="1.06" class="b-v"></td><td><input type="number" step="0.1" value="0.0" class="b-ang"></td>
+                                <td><input type="number" step="0.01" value="0.94" class="b-vmin"></td><td><input type="number" step="0.01" value="1.06" class="b-vmax"></td>
+                                <td><input type="number" step="0.1" value="0" class="b-pg"></td><td><input type="number" step="0.1" value="0" class="b-qg"></td>
+                                <td><input type="number" step="0.1" value="0" class="b-pl" onchange="syncKPIS()"></td><td><input type="number" step="0.1" value="0" class="b-ql"></td>
+                                <td><button class="btn-delete" onclick="deleteRow(this)">✕</button></td>
+                            </tr>
+                            <tr>
+                                <td class="sno-cell">2</td><td><input type="number" value="2" class="b-id"></td>
+                                <td><select class="b-type"><option value="pv" selected>PV Bus</option><option value="slack">Slack Bus</option><option value="pq">PQ Bus</option></select></td>
+                                <td><input type="number" step="0.01" value="1.04" class="b-v"></td><td><input type="number" step="0.1" value="0.0" class="b-ang"></td>
+                                <td><input type="number" step="0.01" value="0.94" class="b-vmin"></td><td><input type="number" step="0.01" value="1.06" class="b-vmax"></td>
+                                <td><input type="number" step="0.1" value="40" class="b-pg"></td><td><input type="number" step="0.1" value="0" class="b-qg"></td>
+                                <td><input type="number" step="0.1" value="20" class="b-pl" onchange="syncKPIS()"></td><td><input type="number" step="0.1" value="10" class="b-ql"></td>
+                                <td><button class="btn-delete" onclick="deleteRow(this)">✕</button></td>
+                            </tr>
+                            <tr>
+                                <td class="sno-cell">3</td><td><input type="number" value="3" class="b-id"></td>
+                                <td><select class="b-type"><option value="pq" selected>PQ Bus</option><option value="pv">PV Bus</option><option value="slack">Slack Bus</option></select></td>
+                                <td><input type="number" step="0.01" value="1.00" class="b-v"></td><td><input type="number" step="0.1" value="0.0" class="b-ang"></td>
+                                <td><input type="number" step="0.01" value="0.94" class="b-vmin"></td><td><input type="number" step="0.01" value="1.06" class="b-vmax"></td>
+                                <td><input type="number" step="0.1" value="0" class="b-pg"></td><td><input type="number" step="0.1" value="0" class="b-qg"></td>
+                                <td><input type="number" step="0.1" value="45" class="b-pl" onchange="syncKPIS()"></td><td><input type="number" step="0.1" value="15" class="b-ql"></td>
+                                <td><button class="btn-delete" onclick="deleteRow(this)">✕</button></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section id="lineView" class="view-section">
+                <div class="page-header">
+                    <h1>Transmission Line Parameters</h1>
+                    <button class="btn-gold btn-small" onclick="addLineRow()">+ Add New Line</button>
+                </div>
+                <div class="card">
+                    <table class="data-table" id="lineTable">
+                        <thead>
+                            <tr><th>S.NO</th><th>FROM BUS</th><th>TO BUS</th><th>R (P.U.)</th><th>X (P.U.)</th><th>B/2 (P.U.)</th><th>RATING (MVA)</th><th>ACTION</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="sno-cell">1</td><td><input type="number" value="1" class="l-from"></td><td><input type="number" value="2" class="l-to"></td>
+                                <td><input type="number" step="0.001" value="0.020" class="l-r"></td><td><input type="number" step="0.001" value="0.060" class="l-x"></td>
+                                <td><input type="number" step="0.001" value="0.030" class="l-b"></td><td><input type="number" step="1" value="50" class="l-ratea"></td>
+                                <td><button class="btn-delete" onclick="deleteRow(this)">✕</button></td>
+                            </tr>
+                            <tr>
+                                <td class="sno-cell">2</td><td><input type="number" value="1" class="l-from"></td><td><input type="number" value="3" class="l-to"></td>
+                                <td><input type="number" step="0.001" value="0.080" class="l-r"></td><td><input type="number" step="0.001" value="0.240" class="l-x"></td>
+                                <td><input type="number" step="0.001" value="0.025" class="l-b"></td><td><input type="number" step="1" value="40" class="l-ratea"></td>
+                                <td><button class="btn-delete" onclick="deleteRow(this)">✕</button></td>
+                            </tr>
+                            <tr>
+                                <td class="sno-cell">3</td><td><input type="number" value="2" class="l-from"></td><td><input type="number" value="3" class="l-to"></td>
+                                <td><input type="number" step="0.001" value="0.060" class="l-r"></td><td><input type="number" step="0.001" value="0.180" class="l-x"></td>
+                                <td><input type="number" step="0.001" value="0.020" class="l-b"></td><td><input type="number" step="1" value="40" class="l-ratea"></td>
+                                <td><button class="btn-delete" onclick="deleteRow(this)">✕</button></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section id="reportsView" class="view-section">
+                <div class="page-header"><h1>Calculation Reports</h1></div>
+                <div class="card">
+                    <div class="card-title">📈 Solver Convergence Diagnostics</div>
+                    <div class="diag-grid">
+                        <div>
+                            <table class="data-table mono-table" id="diagTable">
+                                <thead><tr><th>ITERATION</th><th>MAX MISMATCH</th></tr></thead>
+                                <tbody><tr><td colspan="2" style="text-align:center;">Run load flow to view trace.</td></tr></tbody>
+                            </table>
+                        </div>
+                        <div class="chart-box"><canvas id="convChart"></canvas></div>
+                    </div>
+                </div>
+
+                <div class="charts-grid" style="margin-bottom: 25px;">
+                    <div class="card"><div class="card-title">⚡ Bus Voltage Magnitude & Angle</div><div class="chart-box"><canvas id="voltageChart"></canvas></div></div>
+                    <div class="card"><div class="card-title">⚖ Active Power Profile</div><div class="chart-box"><canvas id="powerChart"></canvas></div></div>
+                    <div class="card"><div class="card-title">🔥 Line Losses</div><div class="chart-box"><canvas id="lossChart"></canvas></div></div>
+                    <div class="card"><div class="card-title">🔌 Line Loading (%)</div><div class="chart-box"><canvas id="loadingChart"></canvas></div></div>
+                </div>
+
+                <div class="card">
+                    <div class="card-title">Bus Results Summary with Limit Interpretation</div>
+                    <table class="data-table" id="busResultsTable">
+                        <thead><tr><th>S.NO</th><th>BUS ID</th><th>VOLTAGE (p.u.)</th><th>LIMIT RANGE</th><th>STATUS</th><th>ANGLE (deg)</th><th>GEN P / Q</th><th>LOAD P / Q</th></tr></thead>
+                        <tbody><tr><td colspan="8" style="text-align:center;">Run load flow to populate results.</td></tr></tbody>
+                    </table>
+                </div>
+
+                <div class="card">
+                    <div class="card-title">Line Flow Results Summary with Overload Warning</div>
+                    <table class="data-table" id="lineResultsTable">
+                        <thead><tr><th>S.NO</th><th>LINE (i ➔ j)</th><th>POWER P(ij) (MW)</th><th>REACTIVE Q(ij) (MVAR)</th><th>CURRENT (p.u.)</th><th>REAL LOSS (MW)</th><th>LOADING (%)</th><th>THERMAL STATUS</th></tr></thead>
+                        <tbody><tr><td colspan="8" style="text-align:center;">Run load flow to populate results.</td></tr></tbody>
+                    </table>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script>
+        let charts = {}, networkInstance = null, lastCalculationData = null;
+
+        function switchView(viewId, element) {
+            document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+            document.getElementById(viewId).classList.add('active');
+            if (element) element.classList.add('active');
+            if(viewId === 'networkView') renderNetworkDiagram();
+        }
+
+        function renumberSerialNumbers() {
+            document.querySelectorAll("#busTable tbody tr").forEach((row, idx) => {
+                const snoCell = row.querySelector(".sno-cell");
+                if (snoCell) snoCell.innerText = idx + 1;
+            });
+            document.querySelectorAll("#lineTable tbody tr").forEach((row, idx) => {
+                const snoCell = row.querySelector(".sno-cell");
+                if (snoCell) snoCell.innerText = idx + 1;
+            });
+        }
+
+        function syncKPIS() {
+            const bCount = document.querySelectorAll("#busTable tbody tr").length;
+            const lCount = document.querySelectorAll("#lineTable tbody tr").length;
+            let totalPl = 0;
+            document.querySelectorAll(".b-pl").forEach(i => totalPl += parseFloat(i.value) || 0);
+
+            document.getElementById("dashBuses").innerText = bCount;
+            document.getElementById("dashLines").innerText = lCount;
+            document.getElementById("dashLoad").innerText = totalPl.toFixed(2) + " MW";
+            renumberSerialNumbers();
+        }
+
+        function addBusRow() {
+            const tbody = document.querySelector("#busTable tbody");
+            const newIndex = tbody.rows.length + 1;
+            const row = tbody.insertRow();
+            row.innerHTML = `
+                <td class="sno-cell">${newIndex}</td>
+                <td><input type="number" class="b-id" value="${newIndex}"></td>
+                <td><select class="b-type"><option value="slack">Slack Bus</option><option value="pv">PV Bus</option><option value="pq" selected>PQ Bus</option></select></td>
+                <td><input type="number" step="0.01" value="1.0" class="b-v"></td>
+                <td><input type="number" step="0.1" value="0.0" class="b-ang"></td>
+                <td><input type="number" step="0.01" value="0.94" class="b-vmin"></td>
+                <td><input type="number" step="0.01" value="1.06" class="b-vmax"></td>
+                <td><input type="number" step="0.1" value="0" class="b-pg"></td>
+                <td><input type="number" step="0.1" value="0" class="b-qg"></td>
+                <td><input type="number" step="0.1" value="0" class="b-pl" onchange="syncKPIS()"></td>
+                <td><input type="number" step="0.1" value="0" class="b-ql"></td>
+                <td><button class="btn-delete" onclick="deleteRow(this)">✕</button></td>
+            `;
+            syncKPIS();
+        }
+
+        function addLineRow() {
+            const tbody = document.querySelector("#lineTable tbody");
+            const newIndex = tbody.rows.length + 1;
+            const row = tbody.insertRow();
+            row.innerHTML = `
+                <td class="sno-cell">${newIndex}</td>
+                <td><input type="number" class="l-from" value="1"></td>
+                <td><input type="number" class="l-to" value="2"></td>
+                <td><input type="number" step="0.001" value="0.01" class="l-r"></td>
+                <td><input type="number" step="0.001" value="0.05" class="l-x"></td>
+                <td><input type="number" step="0.001" value="0.00" class="l-b"></td>
+                <td><input type="number" step="1" value="50" class="l-ratea"></td>
+                <td><button class="btn-delete" onclick="deleteRow(this)">✕</button></td>
+            `;
+            syncKPIS();
+        }
+
+        function deleteRow(buttonElement) {
+            const row = buttonElement.closest('tr');
+            if (row.closest('table').querySelectorAll('tbody tr').length <= 1) {
+                alert("You must keep at least one row in the grid."); return;
+            }
+            row.remove();
+            syncKPIS();
+        }
+
+        function clearErrors() {
+            document.getElementById("validationBanner").style.display = "none";
+            document.getElementById("validationList").innerHTML = "";
+        }
+
+        function displayErrors(errorList) {
+            const banner = document.getElementById("validationBanner");
+            const list = document.getElementById("validationList");
+            list.innerHTML = "";
+            errorList.forEach(err => {
+                const li = document.createElement("li");
+                li.innerText = err;
+                list.appendChild(li);
+            });
+            banner.style.display = "block";
+            banner.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function renderNetworkDiagram() {
+            const nodes = [], edges = [];
+            const busRows = document.querySelectorAll("#busTable tbody tr");
+            const lineRows = document.querySelectorAll("#lineTable tbody tr");
+
+            busRows.forEach(row => {
+                const bId = row.querySelector(".b-id").value;
+                const bType = row.querySelector(".b-type").value;
+                let color = "#3498db";
+                if(bType === "slack") color = "#cfa138";
+                if(bType === "pv") color = "#2ecc71";
+
+                nodes.push({
+                    id: parseInt(bId),
+                    label: `Bus ${bId}\n[${bType.toUpperCase()}]`,
+                    shape: 'box',
+                    color: { background: color, border: '#2c3e50' },
+                    font: { color: '#ffffff', face: 'monospace', size: 14 }
+                });
+            });
+
+            lineRows.forEach((row, idx) => {
+                const from = parseInt(row.querySelector(".l-from").value);
+                const to = parseInt(row.querySelector(".l-to").value);
+                
+                let edgeColor = '#7f8c8d', width = 2;
+                if (lastCalculationData && lastCalculationData.line_results[idx]) {
+                    const lRes = lastCalculationData.line_results[idx];
+                    if (lRes.loading_pct > 100) { edgeColor = '#e74c3c'; width = 5; }
+                    else if (lRes.loading_pct >= 90) { edgeColor = '#e67e22'; width = 4; }
+                }
+
+                edges.push({ from, to, width, color: { color: edgeColor } });
+            });
+
+            const container = document.getElementById('networkContainer');
+            const data = { nodes: new vis.DataSet(nodes), edges: new vis.DataSet(edges) };
+            const options = { physics: { solver: 'forceAtlas2Based' }, interaction: { hover: true } };
+
+            networkInstance = new vis.Network(container, data, options);
+            networkInstance.on("click", params => {
+                if (params.nodes.length > 0) inspectBusNode(params.nodes[0]);
+            });
+        }
+
+        function inspectBusNode(busId) {
+            const inspector = document.getElementById("inspectorBox");
+            let result = null;
+            if (lastCalculationData && lastCalculationData.bus_results) {
+                result = lastCalculationData.bus_results.find(b => parseInt(b.bus_id) === busId);
+            }
+
+            if (result) {
+                inspector.innerHTML = `
+                    <h4>Bus ${result.bus_id} Diagnostics</h4>
+                    <b>Type:</b> ${result.type.toUpperCase()}<br>
+                    <b>Voltage:</b> ${result.voltage} p.u. [Limit: ${result.v_min}-${result.v_max}]<br>
+                    <b>Voltage Status:</b> <span class="status-badge ${result.v_status==='NORMAL'?'badge-ok':'badge-danger'}">${result.v_status}</span><br>
+                    <b>Angle:</b> ${result.angle_deg}°<br>
+                    <b>P Load:</b> ${result.p_load} MW | <b>Q Load:</b> ${result.q_load} MVAR<br>
+                    <b>P Gen:</b> ${result.p_gen} MW | <b>Q Gen:</b> ${result.q_gen} MVAR
+                `;
+            } else {
+                inspector.innerHTML = `<h4>Bus ${busId} Info</h4><i>Run load flow calculation to view solved output state vectors.</i>`;
+            }
+        }
+
+        function getPayload() {
+            const method = document.getElementById("method").value;
+            const baseMva = document.getElementById("baseMva").value;
+            const maxIter = document.getElementById("maxIter").value;
+            const tolerance = document.getElementById("tolerance").value;
+
+            const buses = [], lines = [];
+            document.querySelectorAll("#busTable tbody tr").forEach(row => {
+                buses.push({
+                    id: row.querySelector(".b-id").value,
+                    type: row.querySelector(".b-type").value,
+                    v: row.querySelector(".b-v").value,
+                    ang: row.querySelector(".b-ang").value,
+                    v_min: row.querySelector(".b-vmin").value,
+                    v_max: row.querySelector(".b-vmax").value,
+                    pg: row.querySelector(".b-pg").value,
+                    qg: row.querySelector(".b-qg").value,
+                    pl: row.querySelector(".b-pl").value,
+                    ql: row.querySelector(".b-ql").value
+                });
+            });
+
+            document.querySelectorAll("#lineTable tbody tr").forEach(row => {
+                lines.push({
+                    from: row.querySelector(".l-from").value,
+                    to: row.querySelector(".l-to").value,
+                    r: row.querySelector(".l-r").value,
+                    x: row.querySelector(".l-x").value,
+                    b: row.querySelector(".l-b").value,
+                    rate_a: row.querySelector(".l-ratea").value
+                });
+            });
+
+            return { method, baseMva, maxIter, tolerance, buses, lines };
+        }
+
+        function runCalculation() {
+            clearErrors();
+            fetch('/calculate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(getPayload())
+            })
+            .then(async res => {
+                const data = await res.json();
+                if (!res.ok) { displayErrors(data.errors || ["Execution Error"]); return; }
+
+                lastCalculationData = data;
+                document.getElementById("dashStatus").innerText = `${data.status} (${data.iterations} iter)`;
+                document.getElementById("dashLosses").innerText = `${data.total_p_loss} MW / ${data.total_q_loss} MVAR`;
+
+                // Update Health Summary Card with Tooltips
+                let stateMsg = data.status === 'CONVERGED' 
+                    ? "Power flow solution converged successfully within set tolerance." 
+                    : "Solver failed to converge! Iteration limit reached or network unfeasible.";
+                document.getElementById("shState").innerHTML = `
+                    <div class="has-tooltip">
+                        <span class="status-badge ${data.status==='CONVERGED'?'badge-ok':'badge-danger'}">
+                            ${data.status==='CONVERGED'?'✓ CONVERGED':'❌ FAILED'}
+                        </span>
+                        <div class="tooltip-text"><strong>Status Details:</strong><br>${stateMsg}</div>
+                    </div>`;
+
+                let voltViolatedBuses = data.bus_results
+                    .filter(b => b.v_status !== 'NORMAL')
+                    .map(b => `Bus ${b.bus_id} (${b.voltage} p.u.)`)
+                    .join(', ');
+
+                let voltTooltip = data.voltage_summary.violations > 0
+                    ? `<strong>Voltage Warnings:</strong><br>${data.voltage_summary.violations} bus(es) outside specified limits [Vmin-Vmax]:<br>• ${voltViolatedBuses}`
+                    : `<strong>All Normal:</strong><br>All bus voltages are within acceptable limits.`;
+
+                document.getElementById("shVoltViol").innerHTML = `
+                    <div class="has-tooltip" onclick="switchView('reportsView', document.querySelectorAll('.nav-item')[6])">
+                        <span class="status-badge ${data.voltage_summary.violations > 0 ? 'badge-warn' : 'badge-ok'}">
+                            ${data.voltage_summary.violations > 0 ? '⚠ ' + data.voltage_summary.violations : '✓ 0'}
+                        </span>
+                        <div class="tooltip-text">${voltTooltip}<br><br><i>Click to view in Detailed Analytics.</i></div>
+                    </div>`;
+
+                let overloadedLinesList = data.line_results
+                    .filter(l => l.load_status === 'OVERLOADED')
+                    .map(l => `Line ${l.from_bus}➔${l.to_bus} (${l.loading_pct}%)`)
+                    .join(', ');
+
+                let lineTooltip = data.overloaded_lines_count > 0
+                    ? `<strong>Thermal Overloads:</strong><br>${data.overloaded_lines_count} line(s) exceeding 100% rating:<br>• ${overloadedLinesList}`
+                    : `<strong>All Normal:</strong><br>No lines exceeding thermal limits.`;
+
+                document.getElementById("shOverLines").innerHTML = `
+                    <div class="has-tooltip" onclick="switchView('reportsView', document.querySelectorAll('.nav-item')[6])">
+                        <span class="status-badge ${data.overloaded_lines_count > 0 ? 'badge-danger' : 'badge-ok'}">
+                            ${data.overloaded_lines_count > 0 ? '❌ ' + data.overloaded_lines_count : '✓ 0'}
+                        </span>
+                        <div class="tooltip-text">${lineTooltip}<br><br><i>Click to view in Detailed Analytics.</i></div>
+                    </div>`;
+
+                document.getElementById("shPLoss").innerText = `${data.total_p_loss} MW`;
+                document.getElementById("shQLoss").innerText = `${data.total_q_loss} MVAR`;
+                document.getElementById("shMinV").innerText = `${data.min_voltage} p.u.`;
+                document.getElementById("shMaxV").innerText = `${data.max_voltage} p.u.`;
+                document.getElementById("shIter").innerText = data.iterations;
+
+                const diagTbody = document.querySelector("#diagTable tbody");
+                diagTbody.innerHTML = "";
+                data.convergence_history.forEach(h => {
+                    const row = diagTbody.insertRow();
+                    row.innerHTML = `<td>${h.iteration}</td><td>${h.mismatch.toFixed(6)}</td>`;
+                });
+
+                const busTbody = document.querySelector("#busResultsTable tbody");
+                busTbody.innerHTML = "";
+                data.bus_results.forEach((b, idx) => {
+                    const row = busTbody.insertRow();
+                    let stBadge = `<span class="status-badge badge-ok">✓ Normal</span>`;
+                    if(b.v_status === 'LOW') stBadge = `<span class="status-badge badge-warn">⚠ Low</span>`;
+                    if(b.v_status === 'HIGH') stBadge = `<span class="status-badge badge-danger">⚠ High</span>`;
+
+                    row.innerHTML = `<td class="sno-cell">${idx + 1}</td><td><strong>Bus ${b.bus_id}</strong> (${b.type.toUpperCase()})</td><td>${b.voltage}</td><td>${b.v_min} – ${b.v_max}</td><td>${stBadge}</td><td>${b.angle_deg}°</td><td>${b.p_gen} / ${b.q_gen}</td><td>${b.p_load} / ${b.q_load}</td>`;
+                });
+
+                const lineTbody = document.querySelector("#lineResultsTable tbody");
+                lineTbody.innerHTML = "";
+                data.line_results.forEach((l, idx) => {
+                    const row = lineTbody.insertRow();
+                    let lBadge = `<span class="status-badge badge-ok">Normal</span>`;
+                    if(l.load_status === 'WARNING') lBadge = `<span class="status-badge badge-warn">Warning</span>`;
+                    if(l.load_status === 'CRITICAL') lBadge = `<span class="status-badge badge-warn">Critical</span>`;
+                    if(l.load_status === 'OVERLOADED') lBadge = `<span class="status-badge badge-danger">Overloaded</span>`;
+
+                    row.innerHTML = `<td class="sno-cell">${idx + 1}</td><td><strong>Bus ${l.from_bus} ➔ Bus ${l.to_bus}</strong></td><td>${l.p_flow}</td><td>${l.q_flow}</td><td>${l.line_current}</td><td>${l.p_loss}</td><td>${l.loading_pct}%</td><td>${lBadge}</td>`;
+                });
+
+                renderCharts(data);
+                switchView('reportsView', document.querySelectorAll('.nav-item')[6]);
+            });
+        }
+
+        function runStressAnalysis() {
+            const payload = getPayload();
+            payload.start_pct = document.getElementById("stressStart").value;
+            payload.end_pct = document.getElementById("stressEnd").value;
+            payload.step_pct = document.getElementById("stressStep").value;
+
+            fetch('/stress_analysis', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+            .then(res => res.json())
+            .then(data => {
+                const labels = data.stress_curve.map(pt => `${pt.load_pct}%`);
+                const busIds = Object.keys(data.stress_curve[0].buses);
+                const colors = ['#cfa138', '#2ecc71', '#e74c3c', '#3498db', '#9b59b6', '#e67e22'];
+
+                const datasets = busIds.map((bId, idx) => ({
+                    label: `Bus ${bId} Voltage`,
+                    data: data.stress_curve.map(pt => pt.buses[bId]),
+                    borderColor: colors[idx % colors.length],
+                    fill: false
+                }));
+
+                if(charts.stress) charts.stress.destroy();
+                charts.stress = new Chart(document.getElementById('stressChart'), {
+                    type: 'line',
+                    data: { labels, datasets },
+                    options: { responsive: true, maintainAspectRatio: false, scales: { x: { title: { display: true, text: 'Total System Load Factor (%)' } }, y: { title: { display: true, text: 'Voltage Magnitude (p.u.)' } } } }
+                });
+            });
+        }
+
+        function runBenchmark() {
+            fetch('/compare_methods', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(getPayload())
+            })
+            .then(res => res.json())
+            .then(data => {
+                const tbody = document.querySelector("#benchmarkTable tbody");
+                tbody.innerHTML = "";
+                data.comparison.forEach(c => {
+                    const row = tbody.insertRow();
+                    row.innerHTML = `<td><strong>${c.method}</strong></td><td>${c.iterations}</td><td>${c.final_error.toFixed(6)}</td><td><span class="status-badge ${c.status==='CONVERGED'?'badge-ok':'badge-danger'}">${c.status}</span></td><td>${c.exec_time} s</td>`;
+                });
+
+                const labels = data.comparison.map(c => c.method);
+                const iters = data.comparison.map(c => c.iterations);
+                const times = data.comparison.map(c => c.exec_time);
+
+                if(charts.benchIter) charts.benchIter.destroy();
+                charts.benchIter = new Chart(document.getElementById('benchIterChart'), {
+                    type: 'bar',
+                    data: { labels, datasets: [{ label: 'Iterations', data: iters, backgroundColor: '#cfa138' }] },
+                    options: { responsive: true, maintainAspectRatio: false }
+                });
+
+                if(charts.benchTime) charts.benchTime.destroy();
+                charts.benchTime = new Chart(document.getElementById('benchTimeChart'), {
+                    type: 'bar',
+                    data: { labels, datasets: [{ label: 'Time (seconds)', data: times, backgroundColor: '#3498db' }] },
+                    options: { responsive: true, maintainAspectRatio: false }
+                });
+            });
+        }
+
+        function renderCharts(data) {
+            const busLabels = data.bus_results.map(b => `Bus ${b.bus_id}`);
+            const voltages = data.bus_results.map(b => b.voltage);
+            const pGen = data.bus_results.map(b => b.p_gen);
+            const pLoad = data.bus_results.map(b => b.p_load);
+
+            const lineLabels = data.line_results.map(l => `Line ${l.from_bus}-${l.to_bus}`);
+            const pLosses = data.line_results.map(l => l.p_loss);
+            const qLosses = data.line_results.map(l => l.q_loss);
+            const loadings = data.line_results.map(l => l.loading_pct);
+
+            const convLabels = data.convergence_history.map(h => `Iter ${h.iteration}`);
+            const convMismatches = data.convergence_history.map(h => h.mismatch);
+
+            ['conv', 'voltage', 'power', 'loss', 'loading'].forEach(k => { if(charts[k]) charts[k].destroy(); });
+
+            charts.conv = new Chart(document.getElementById('convChart'), {
+                type: 'line',
+                data: { labels: convLabels, datasets: [{ label: 'Max Mismatch (p.u.)', data: convMismatches, borderColor: '#e74c3c', backgroundColor: 'rgba(231, 76, 60, 0.1)', fill: true }] },
+                options: { responsive: true, maintainAspectRatio: false, scales: { y: { type: 'logarithmic' } } }
+            });
+
+            charts.voltage = new Chart(document.getElementById('voltageChart'), {
+                type: 'line',
+                data: { labels: busLabels, datasets: [{ label: 'Voltage Magnitude V (p.u.)', data: voltages, borderColor: '#cfa138', fill: false }] },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+
+            charts.power = new Chart(document.getElementById('powerChart'), {
+                type: 'bar',
+                data: { labels: busLabels, datasets: [{ label: 'Gen P(G) (MW)', data: pGen, backgroundColor: '#1abc9c' }, { label: 'Load P(L) (MW)', data: pLoad, backgroundColor: '#e74c3c' }] },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+
+            charts.loss = new Chart(document.getElementById('lossChart'), {
+                type: 'bar',
+                data: { labels: lineLabels, datasets: [{ label: 'Real Loss P_loss (MW)', data: pLosses, backgroundColor: '#e67e22' }, { label: 'Reactive Loss Q_loss (MVAR)', data: qLosses, backgroundColor: '#9b59b6' }] },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+
+            charts.loading = new Chart(document.getElementById('loadingChart'), {
+                type: 'bar',
+                data: { labels: lineLabels, datasets: [{ label: 'Thermal Loading (%)', data: loadings, backgroundColor: loadings.map(v => v > 100 ? '#e74c3c' : (v > 90 ? '#e67e22' : '#2ecc71')) }] },
+                options: { responsive: true, maintainAspectRatio: false, scales: { y: { max: 120 } } }
+            });
+        }
+
+        document.addEventListener("DOMContentLoaded", () => {
+            syncKPIS();
+            renderNetworkDiagram();
+        });
+    </script>
+</body>
+</html>
