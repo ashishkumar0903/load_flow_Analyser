@@ -77,7 +77,7 @@ function runCalculation() {
         });
     });
 
-    fetch('/calculate', {
+    fetch(' https://power-flow-analyser.netlify.app/calculate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ method, buses, lines })
