@@ -1,12 +1,17 @@
 from flask import Flask, render_template, request, jsonify
+from flask_cors import CORS
 import numpy as np
 import time
 
 app = Flask(__name__)
+CORS(app)
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    return jsonify({
+        "status": "online",
+        "message": "Power Flow Analysis API is running."
+    })
 
 def build_ybus(n, lines):
     Ybus = np.zeros((n, n), dtype=complex)
@@ -407,4 +412,4 @@ def compare_methods():
     return jsonify({"comparison": comparison})
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(host='0.0.0.0', port=5000, debug=True)
