@@ -1,4 +1,5 @@
-from flask import Flask, render_template, request, jsonify
+import time
+from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 import numpy as np
 import time
@@ -6,12 +7,9 @@ import time
 app = Flask(__name__)
 CORS(app)
 
-@app.route('/')
+@app.route("/")
 def index():
-    return jsonify({
-        "status": "online",
-        "message": "Power Flow Analysis API is running."
-    })
+    return send_from_directory(".", "index.html")
 
 def build_ybus(n, lines):
     Ybus = np.zeros((n, n), dtype=complex)
