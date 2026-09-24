@@ -1016,13 +1016,7 @@
     </div>
 
     <script>
-        let API_BASE_URL = "http://127.0.0.1:5000";
-
-        if (window.location.protocol === "https:" || window.location.protocol === "http:") {
-            if (window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1") {
-                API_BASE_URL = "https://YOUR-ACTUAL-RENDER-APP-NAME.onrender.com";
-            }
-        }
+        const API_BASE_URL = "";
 
         let charts = {}, networkInstance = null, lastCalculationData = null;
 
